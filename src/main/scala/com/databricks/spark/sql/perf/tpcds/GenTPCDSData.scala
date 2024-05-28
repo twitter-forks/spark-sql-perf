@@ -107,6 +107,7 @@ object GenTPCDSData {
   private def run(config: GenTPCDSDataConfig) {
     val conf = new SparkConf()
     conf.set("spark.hadoop.hive.exec.scratchdir", "/tmp/hive-scratch")
+    conf.set("spark.hadoop.hive.metastore.kerberos.principal", "hive/hive-metastore@TWITTER.BIZ")
     conf.set("spark.hadoop.hive.metastore.sasl.enabled", "true")
     conf.set("spark.authenticate", "true")
     conf.set("spark.sql.catalogImplementation", "hive")
