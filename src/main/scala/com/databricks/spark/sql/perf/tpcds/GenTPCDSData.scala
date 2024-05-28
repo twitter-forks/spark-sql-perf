@@ -16,10 +16,11 @@
 
 package com.databricks.spark.sql.perf.tpcds
 
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
 case class GenTPCDSDataConfig(
-    master: String = "local[*]",
+    master: String = "yarn",
     dsdgenDir: String = null,
     scaleFactor: String = null,
     location: String = null,
@@ -31,7 +32,9 @@ case class GenTPCDSDataConfig(
     clusterByPartitionColumns: Boolean = true,
     filterOutNullPartitionValues: Boolean = true,
     tableFilter: String = "",
-    numPartitions: Int = 100)
+    numPartitions: Int = 100,
+    databaseName: String = "",
+    createHiveTableEnabled: Boolean = false)
 
 /**
  * Gen TPCDS data.
@@ -45,7 +48,7 @@ object GenTPCDSData {
     val parser = new scopt.OptionParser[GenTPCDSDataConfig]("Gen-TPC-DS-data") {
       opt[String]('m', "master")
         .action { (x, c) => c.copy(master = x) }
-        .text("the Spark master to use, default to local[*]")
+        .text("the Spark master to use, default to yarn")
       opt[String]('d', "dsdgenDir")
         .action { (x, c) => c.copy(dsdgenDir = x) }
         .text("location of dsdgen")
@@ -83,6 +86,12 @@ object GenTPCDSData {
       opt[Int]('n', "numPartitions")
         .action((x, c) => c.copy(numPartitions = x))
         .text("how many dsdgen partitions to run - number of input tasks.")
+      opt[Boolean](name = "createHiveTableEnabled")
+        .action((x, c) => c.copy(createHiveTableEnabled = x))
+        .text("boolean flag to create hive external table.")
+      opt[String]("databaseName")
+        .action((x, c) => c.copy(databaseName = x))
+        .text("database name to use for creating hive external tables.")
       help("help")
         .text("prints this usage text")
     }
@@ -96,10 +105,16 @@ object GenTPCDSData {
   }
 
   private def run(config: GenTPCDSDataConfig) {
+    val conf = new SparkConf()
+    conf.set("spark.hadoop.hive.exec.scratchdir", "/tmp/hive-scratch")
+    conf.set("spark.hadoop.hive.metastore.sasl.enabled", "true")
+    conf.set("spark.authenticate", "true")
+    conf.set("spark.sql.catalogImplementation", "hive")
     val spark = SparkSession
       .builder()
       .appName(getClass.getName)
       .master(config.master)
+      .config(conf)
       .getOrCreate()
 
     val tables = new TPCDSTables(spark.sqlContext,
@@ -117,5 +132,14 @@ object GenTPCDSData {
       filterOutNullPartitionValues = config.filterOutNullPartitionValues,
       tableFilter = config.tableFilter,
       numPartitions = config.numPartitions)
+
+    if (config.createHiveTableEnabled) {
+      tables.createExternalTables(
+        config.location,
+        config.format,
+        config.databaseName,
+        overwrite = false,
+        discoverPartitions = true)
+    }
   }
 }
