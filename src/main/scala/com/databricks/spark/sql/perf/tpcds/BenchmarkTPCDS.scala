@@ -42,6 +42,9 @@ object BenchmarkTPCDS {
   def run(config: BenchmarkTPCDSConfig) = {
     val conf = new SparkConf()
     conf.set("spark.hadoop.hive.exec.scratchdir", "/tmp/hive-scratch")
+    // Add the following to set hive metastore uri 
+    // ("spark.hadoop.hive.metastore.uris", "thrift://pdxa-axg-17-vm1.prod.twttr.net:31131")
+    conf.set("spark.hadoop.hive.metastore.kerberos.principal", "hive/hive-metastore@TWITTER.BIZ")
     conf.set("spark.hadoop.hive.metastore.sasl.enabled", "true")
     conf.set("spark.authenticate", "true")
     conf.set("spark.sql.catalogImplementation", "hive")
